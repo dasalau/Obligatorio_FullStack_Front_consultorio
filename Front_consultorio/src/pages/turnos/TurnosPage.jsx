@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
+import api from "../../api/api";
 import PageHeader from "../../components/layout/PageHeader";
 import PagePagination from "../../components/layout/PagePagination";
 import TurnosFiltersBar from "../../components/layout/TurnosFiltersBar";
@@ -8,15 +9,18 @@ import TurnoForm from "../../components/turnos/TurnoForm";
 import TurnosTable from "../../components/turnos/TurnosTable";
 import {
   clearTurnosError,
-  createTurno,
-  deleteTurno,
-  fetchTurnos,
   setFiltroEstado,
   setFiltroFecha,
   setPagina,
-  updateTurno,
+  setTurnosData,
+  setTurnosError,
+  setTurnosLoading,
+  setTurnosSaving,
 } from "../../features/turnos/turnos.slice";
-import { fetchEspecialidades } from "../../features/especialidades/especialidades.slice";
+import {
+  setEspecialidades,
+  setEspecialidadesLoading,
+} from "../../features/especialidades/especialidades.slice";
 
 const TurnosPage = () => {
   const dispatch = useDispatch();
@@ -29,16 +33,65 @@ const TurnosPage = () => {
   const [editingTurno, setEditingTurno] = useState(null);
   const [formError, setFormError] = useState(null);
 
+  const cargarTurnos = async () => {
+    dispatch(setTurnosLoading(true));
+    dispatch(clearTurnosError());
+
+    try {
+      const params = {
+        pagina: paginacion.pagina,
+        limite: paginacion.limite,
+        mine: true,
+      };
+
+      if (filtros.estado) {
+        params.estado = filtros.estado;
+      }
+
+      if (filtros.fecha) {
+        params.fecha = filtros.fecha;
+      }
+
+      const { data } = await api.get("/turnos", { params });
+      dispatch(setTurnosData(data));
+    } catch (error) {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.mensaje ||
+        error?.message ||
+        "No se pudieron cargar los turnos";
+      dispatch(setTurnosError(message));
+    } finally {
+      dispatch(setTurnosLoading(false));
+    }
+  };
+
+  const cargarEspecialidades = async () => {
+    dispatch(setEspecialidadesLoading(true));
+
+    try {
+      const { data } = await api.get("/especialidades", {
+        params: { pagina: 1, limite: 1000 },
+      });
+      dispatch(setEspecialidades(data));
+    } catch (error) {
+      console.error("Error cargando especialidades", error);
+    } finally {
+      dispatch(setEspecialidadesLoading(false));
+    }
+  };
+
   useEffect(() => {
-    dispatch(fetchTurnos());
+    cargarTurnos();
   }, [dispatch, filtros.estado, filtros.fecha, paginacion.pagina]);
 
   useEffect(() => {
-    dispatch(fetchEspecialidades());
+    cargarEspecialidades();
   }, [dispatch]);
 
   const handleCreateTurno = async (values) => {
     try {
+      dispatch(setTurnosSaving(true));
       const payload = {
         fecha: values.fecha,
         hora: values.hora,
@@ -48,29 +101,18 @@ const TurnosPage = () => {
         especialidad: values.especialidad,
       };
 
-      const result = await dispatch(createTurno(payload));
-      if (createTurno.fulfilled.match(result)) {
-        toast.success("Turno creado correctamente");
-        setFormError(null);
-        setShowCreateForm(false);
-        dispatch(fetchTurnos());
-        return true;
-      }
-
-      const message = result?.payload || "Ocurrio un error inesperado";
-      const friendlyMessage =
-        message.includes("4 turnos activos") || message.includes("plan Plus")
-          ? "Has alcanzado el límite de 4 turnos activos en tu plan Plus. Pasate a Premium para seguir registrando turnos."
-          : message;
-
-      setFormError(friendlyMessage);
-      toast.error(friendlyMessage, { autoClose: 7000 });
-      return false;
+      await api.post("/turnos", payload);
+      toast.success("Turno creado correctamente");
+      setFormError(null);
+      setShowCreateForm(false);
+      await cargarTurnos();
+      return true;
     } catch (error) {
       const message =
         error?.response?.data?.error ||
+        error?.response?.data?.message ||
         error?.message ||
-        "No se pudo subir la imagen";
+        "No se pudo crear el turno";
       const friendlyMessage =
         message.includes("4 turnos activos") || message.includes("plan Plus")
           ? "Has alcanzado el límite de 4 turnos activos en tu plan Plus. Pasate a Premium para seguir registrando turnos."
@@ -79,6 +121,8 @@ const TurnosPage = () => {
       setFormError(friendlyMessage);
       toast.error(friendlyMessage, { autoClose: 7000 });
       return false;
+    } finally {
+      dispatch(setTurnosSaving(false));
     }
   };
 
@@ -87,72 +131,87 @@ const TurnosPage = () => {
       return false;
     }
 
-    const payload = {
-      fecha: values.fecha,
-      hora: values.hora,
-      motivo: values.motivo,
-      estado: values.estado || "pendiente",
-      paciente: values.paciente,
-      especialidad: values.especialidad,
-    };
+    try {
+      dispatch(setTurnosSaving(true));
+      const payload = {
+        fecha: values.fecha,
+        hora: values.hora,
+        motivo: values.motivo,
+        estado: values.estado || "pendiente",
+        paciente: values.paciente,
+        especialidad: values.especialidad,
+      };
 
-    const result = await dispatch(
-      updateTurno({ id: editingTurno._id, payload }),
-    );
-
-    if (updateTurno.fulfilled.match(result)) {
+      await api.put(`/turnos/${editingTurno._id}`, payload);
       toast.success("Turno actualizado correctamente");
       setFormError(null);
       setShowCreateForm(false);
       setEditingTurno(null);
-      dispatch(fetchTurnos());
+      await cargarTurnos();
       return true;
+    } catch (error) {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.mensaje ||
+        error?.message ||
+        "No se pudo actualizar el turno";
+      setFormError(message);
+      toast.error(message);
+      return false;
+    } finally {
+      dispatch(setTurnosSaving(false));
     }
-
-    const message = result?.payload || "Ocurrio un error inesperado";
-    setFormError(message);
-    toast.error(message);
-    return false;
   };
 
   const handleDeleteTurno = async (id) => {
-    const result = await dispatch(deleteTurno(id));
-    if (deleteTurno.fulfilled.match(result)) {
+    try {
+      dispatch(setTurnosSaving(true));
+      await api.delete(`/turnos/${id}`);
       toast.success("Turno eliminado correctamente");
-      dispatch(fetchTurnos());
+      await cargarTurnos();
       return;
+    } catch (error) {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.mensaje ||
+        error?.message ||
+        "No se pudo eliminar el turno";
+      toast.error(message);
+    } finally {
+      dispatch(setTurnosSaving(false));
     }
-
-    const message = result?.payload || "No se pudo eliminar el turno";
-    toast.error(message);
   };
 
   const handleInlineUpdate = async (id, payload) => {
     const turnoActual = items.find((turno) => turno._id === id);
     if (!turnoActual) return;
 
-    const normalizedPayload = {
-      fecha: turnoActual.fecha,
-      hora: turnoActual.hora,
-      motivo: turnoActual.motivo || "",
-      estado: payload.estado,
-      imagen: turnoActual.imagen || "",
-      paciente: turnoActual.paciente?._id || turnoActual.paciente,
-      especialidad: turnoActual.especialidad?._id || turnoActual.especialidad,
-    };
+    try {
+      dispatch(setTurnosSaving(true));
+      const normalizedPayload = {
+        fecha: turnoActual.fecha,
+        hora: turnoActual.hora,
+        motivo: turnoActual.motivo || "",
+        estado: payload.estado,
+        imagen: turnoActual.imagen || "",
+        paciente: turnoActual.paciente?._id || turnoActual.paciente,
+        especialidad: turnoActual.especialidad?._id || turnoActual.especialidad,
+      };
 
-    const result = await dispatch(
-      updateTurno({ id, payload: normalizedPayload }),
-    );
-
-    if (updateTurno.fulfilled.match(result)) {
+      await api.put(`/turnos/${id}`, normalizedPayload);
       toast.success("Estado del turno actualizado");
-      dispatch(fetchTurnos());
+      await cargarTurnos();
       return;
+    } catch (error) {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.mensaje ||
+        error?.message ||
+        "No se pudo actualizar el turno";
+      toast.error(message);
+    } finally {
+      dispatch(setTurnosSaving(false));
     }
-
-    const message = result?.payload || "No se pudo actualizar el turno";
-    toast.error(message);
   };
 
   return (

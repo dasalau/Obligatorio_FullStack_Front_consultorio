@@ -1,8 +1,13 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchMiPerfil } from "../../features/auth/auth.slice";
-import { fetchTurnosReporte } from "../../features/turnos/turnos.slice";
+import api from "../../api/api";
+import { setUser } from "../../features/auth/auth.slice";
+import {
+  setReporteLoading,
+  setTurnosReporteData,
+  setReporteError,
+} from "../../features/turnos/turnos.slice";
 
 const DashboardPage = () => {
   const dispatch = useDispatch();
@@ -12,15 +17,70 @@ const DashboardPage = () => {
   const planCode = user?.plan?.codigo || user?.plan;
 
   useEffect(() => {
-    if (!user || !user?.plan?.codigo) {
-      dispatch(fetchMiPerfil());
-    }
+    const loadProfile = async () => {
+      if (user && user?.plan?.codigo) {
+        return;
+      }
+
+      try {
+        const { data } = await api.get("/usuarios/me");
+        dispatch(setUser(data.user || data));
+      } catch (error) {
+        const message =
+          error?.response?.data?.message ||
+          error?.response?.data?.mensaje ||
+          error?.message ||
+          "No se pudo cargar el perfil";
+        dispatch(setReporteError(message));
+      }
+    };
+
+    loadProfile();
   }, [dispatch, user]);
 
   useEffect(() => {
-    if (user) {
-      dispatch(fetchTurnosReporte());
-    }
+    const loadReporte = async () => {
+      if (!user) {
+        return;
+      }
+
+      try {
+        dispatch(setReporteLoading(true));
+        const { data } = await api.get("/turnos", {
+          params: {
+            pagina: 1,
+            limite: 1000,
+            mine: true,
+          },
+        });
+
+        const turnos = data?.turnos || [];
+        const totalActivos = turnos.filter((turno) => {
+          const estado = String(turno?.estado || "")
+            .trim()
+            .toLowerCase();
+          return estado === "pendiente" || estado === "confirmado";
+        }).length;
+
+        dispatch(
+          setTurnosReporteData({
+            turnos,
+            total: totalActivos,
+          }),
+        );
+      } catch (error) {
+        const message =
+          error?.response?.data?.message ||
+          error?.response?.data?.mensaje ||
+          error?.message ||
+          "No se pudo cargar el reporte";
+        dispatch(setReporteError(message));
+      } finally {
+        dispatch(setReporteLoading(false));
+      }
+    };
+
+    loadReporte();
   }, [dispatch, user?._id, user?.id]);
 
   const resumen = turnos.reduce(

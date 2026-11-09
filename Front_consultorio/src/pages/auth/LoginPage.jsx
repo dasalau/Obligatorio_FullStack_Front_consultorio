@@ -3,7 +3,13 @@ import { useForm } from "react-hook-form";
 import { joiResolver } from "@hookform/resolvers/joi";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { clearAuthError, loginUsuario } from "../../features/auth/auth.slice";
+import api from "../../api/api";
+import {
+  clearAuthError,
+  setAuthError,
+  setAuthLoading,
+  setSession,
+} from "../../features/auth/auth.slice";
 import { loginSchema } from "../../validators/auth.validators";
 
 const LoginPage = () => {
@@ -22,9 +28,27 @@ const LoginPage = () => {
   }, [dispatch]);
 
   const onSubmit = async (values) => {
-    const result = await dispatch(loginUsuario(values));
-    if (loginUsuario.fulfilled.match(result)) {
+    try {
+      dispatch(setAuthLoading(true));
+      dispatch(clearAuthError());
+
+      const { data } = await api.post("/auth/login", values);
+      dispatch(
+        setSession({
+          token: data.token,
+          user: data.user,
+        }),
+      );
       navigate("/dashboard", { replace: true });
+    } catch (error) {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.mensaje ||
+        error?.message ||
+        "No se pudo iniciar sesión";
+      dispatch(setAuthError(message));
+    } finally {
+      dispatch(setAuthLoading(false));
     }
   };
 

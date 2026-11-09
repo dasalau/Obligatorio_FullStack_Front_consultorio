@@ -9,12 +9,13 @@ import PacienteForm from "../../components/pacientes/PacienteForm";
 import PacientesList from "../../components/pacientes/PacientesList";
 import {
   clearPacientesError,
-  createPaciente,
-  deletePaciente,
-  fetchPacientes,
-  searchPacientes,
+  setPacientes,
+  setPacientesError,
+  setPacientesLoading,
+  setPacientesSaving,
   setPaginaPacientes,
-  updatePaciente,
+  setPacientesSearchLoading,
+  setSearchResults,
 } from "../../features/pacientes/pacientes.slice";
 
 const PacientesPage = () => {
@@ -41,13 +42,32 @@ const PacientesPage = () => {
     email: "",
   };
 
+  const cargarPacientes = async () => {
+    dispatch(setPacientesLoading(true));
+    dispatch(clearPacientesError());
+
+    try {
+      const { data } = await api.get("/pacientes", {
+        params: {
+          pagina: paginacion.pagina,
+          limite: paginacion.limite,
+        },
+      });
+      dispatch(setPacientes(data));
+    } catch (error) {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.mensaje ||
+        error?.message ||
+        "No se pudieron cargar los pacientes";
+      dispatch(setPacientesError(message));
+    } finally {
+      dispatch(setPacientesLoading(false));
+    }
+  };
+
   useEffect(() => {
-    dispatch(
-      fetchPacientes({
-        pagina: paginacion.pagina,
-        limite: paginacion.limite,
-      }),
-    );
+    cargarPacientes();
   }, [dispatch, paginacion.pagina, paginacion.limite]);
 
   useEffect(() => {
@@ -56,8 +76,18 @@ const PacientesPage = () => {
       return;
     }
 
-    const timeoutId = setTimeout(() => {
-      dispatch(searchPacientes({ q: query, limite: 8 }));
+    const timeoutId = setTimeout(async () => {
+      dispatch(setPacientesSearchLoading(true));
+      try {
+        const { data } = await api.get("/pacientes/buscar", {
+          params: { q: query, limite: 8 },
+        });
+        dispatch(setSearchResults(data));
+      } catch (error) {
+        dispatch(setSearchResults([]));
+      } finally {
+        dispatch(setPacientesSearchLoading(false));
+      }
     }, 250);
 
     return () => clearTimeout(timeoutId);
@@ -103,49 +133,32 @@ const PacientesPage = () => {
 
   const onSubmit = async (values, selectedFile) => {
     try {
-      let result;
-      let pacienteId = editingId;
+      dispatch(setPacientesSaving(true));
       const payload = sanitizePayload(values);
+      let pacienteId = editingId;
 
       if (editingId) {
-        result = await dispatch(updatePaciente({ id: editingId, payload }));
+        await api.put(`/pacientes/${editingId}`, payload);
       } else {
-        result = await dispatch(createPaciente(values));
-        if (createPaciente.fulfilled.match(result)) {
-          pacienteId = result.payload?.paciente?._id || result.payload?._id;
-        }
+        const { data } = await api.post("/pacientes", values);
+        pacienteId = data?.paciente?._id || data?._id || pacienteId;
       }
 
-      if (
-        createPaciente.fulfilled.match(result) ||
-        updatePaciente.fulfilled.match(result)
-      ) {
-        if (selectedFile && pacienteId) {
-          await uploadPacienteImage(pacienteId, selectedFile);
-        }
-
-        toast.success(
-          editingId
-            ? "Paciente actualizado correctamente"
-            : "Paciente creado correctamente",
-        );
-        setFormError(null);
-        setEditingId(null);
-        setShowCreateForm(false);
-        dispatch(clearPacientesError());
-        dispatch(
-          fetchPacientes({
-            pagina: paginacion.pagina,
-            limite: paginacion.limite,
-          }),
-        );
-        return true;
+      if (selectedFile && pacienteId) {
+        await uploadPacienteImage(pacienteId, selectedFile);
       }
 
-      const message = result?.payload || "Ocurrio un error inesperado";
-      setFormError(message);
-      toast.error(message);
-      return false;
+      toast.success(
+        editingId
+          ? "Paciente actualizado correctamente"
+          : "Paciente creado correctamente",
+      );
+      setFormError(null);
+      setEditingId(null);
+      setShowCreateForm(false);
+      dispatch(clearPacientesError());
+      await cargarPacientes();
+      return true;
     } catch (error) {
       const message =
         error?.response?.data?.message ||
@@ -154,6 +167,8 @@ const PacientesPage = () => {
       setFormError(message);
       toast.error(message);
       return false;
+    } finally {
+      dispatch(setPacientesSaving(false));
     }
   };
 
@@ -179,20 +194,21 @@ const PacientesPage = () => {
   };
 
   const handleDelete = async (id) => {
-    const result = await dispatch(deletePaciente(id));
-    if (deletePaciente.fulfilled.match(result)) {
+    try {
+      dispatch(setPacientesSaving(true));
+      await api.delete(`/pacientes/${id}`);
       toast.success("Paciente eliminado correctamente");
-      dispatch(
-        fetchPacientes({
-          pagina: paginacion.pagina,
-          limite: paginacion.limite,
-        }),
-      );
+      await cargarPacientes();
       return;
+    } catch (error) {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        "No se pudo eliminar el paciente";
+      toast.error(message);
+    } finally {
+      dispatch(setPacientesSaving(false));
     }
-
-    const message = result?.payload || "No se pudo eliminar el paciente";
-    toast.error(message);
   };
 
   return (

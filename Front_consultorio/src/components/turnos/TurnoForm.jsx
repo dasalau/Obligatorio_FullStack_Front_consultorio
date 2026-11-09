@@ -2,7 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useForm } from "react-hook-form";
 import { joiResolver } from "@hookform/resolvers/joi";
-import { searchPacientes } from "../../features/pacientes/pacientes.slice";
+import api from "../../api/api";
+import {
+  setPacientesSearchLoading,
+  setSearchResults,
+} from "../../features/pacientes/pacientes.slice";
 import {
   horasDisponibles,
   turnoSchema,
@@ -181,8 +185,18 @@ const TurnoForm = ({
       return;
     }
 
-    const timeoutId = setTimeout(() => {
-      dispatch(searchPacientes({ q: query, limite: 8 }));
+    const timeoutId = setTimeout(async () => {
+      dispatch(setPacientesSearchLoading(true));
+      try {
+        const { data } = await api.get("/pacientes/buscar", {
+          params: { q: query, limite: 8 },
+        });
+        dispatch(setSearchResults(data));
+      } catch (error) {
+        dispatch(setSearchResults([]));
+      } finally {
+        dispatch(setPacientesSearchLoading(false));
+      }
     }, 250);
 
     return () => clearTimeout(timeoutId);

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
+import api from "../../api/api";
 import PageHeader from "../../components/layout/PageHeader";
 import PageActionRail from "../../components/layout/PageActionRail";
 import PagePagination from "../../components/layout/PagePagination";
@@ -8,11 +9,11 @@ import EspecialidadForm from "../../components/especialidades/EspecialidadForm";
 import EspecialidadesList from "../../components/especialidades/EspecialidadesList";
 import {
   clearEspecialidadesError,
-  createEspecialidad,
-  deleteEspecialidad,
-  fetchEspecialidades,
+  setEspecialidades,
+  setEspecialidadesError,
+  setEspecialidadesLoading,
+  setEspecialidadesSaving,
   setPaginaEspecialidades,
-  updateEspecialidad,
 } from "../../features/especialidades/especialidades.slice";
 
 const EspecialidadesPage = () => {
@@ -29,13 +30,32 @@ const EspecialidadesPage = () => {
     descripcion: "",
   };
 
+  const cargarEspecialidades = async () => {
+    dispatch(setEspecialidadesLoading(true));
+    dispatch(clearEspecialidadesError());
+
+    try {
+      const { data } = await api.get("/especialidades", {
+        params: {
+          pagina: paginacion.pagina,
+          limite: paginacion.limite,
+        },
+      });
+      dispatch(setEspecialidades(data));
+    } catch (error) {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.mensaje ||
+        error?.message ||
+        "No se pudieron cargar las especialidades";
+      dispatch(setEspecialidadesError(message));
+    } finally {
+      dispatch(setEspecialidadesLoading(false));
+    }
+  };
+
   useEffect(() => {
-    dispatch(
-      fetchEspecialidades({
-        pagina: paginacion.pagina,
-        limite: paginacion.limite,
-      }),
-    );
+    cargarEspecialidades();
   }, [dispatch, paginacion.pagina, paginacion.limite]);
 
   const filteredEspecialidades = items.filter((especialidad) => {
@@ -60,17 +80,15 @@ const EspecialidadesPage = () => {
 
   const onSubmit = async (values) => {
     const payload = sanitizePayload(values);
-    let result;
-    if (editingId) {
-      result = await dispatch(updateEspecialidad({ id: editingId, payload }));
-    } else {
-      result = await dispatch(createEspecialidad(payload));
-    }
 
-    if (
-      createEspecialidad.fulfilled.match(result) ||
-      updateEspecialidad.fulfilled.match(result)
-    ) {
+    try {
+      dispatch(setEspecialidadesSaving(true));
+      if (editingId) {
+        await api.patch(`/especialidades/${editingId}`, payload);
+      } else {
+        await api.post("/especialidades", payload);
+      }
+
       toast.success(
         editingId
           ? "Especialidad actualizada correctamente"
@@ -80,19 +98,20 @@ const EspecialidadesPage = () => {
       setEditingId(null);
       setShowCreateForm(false);
       dispatch(clearEspecialidadesError());
-      dispatch(
-        fetchEspecialidades({
-          pagina: paginacion.pagina,
-          limite: paginacion.limite,
-        }),
-      );
+      await cargarEspecialidades();
       return true;
+    } catch (error) {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.mensaje ||
+        error?.message ||
+        "Ocurrio un error inesperado";
+      setFormError(message);
+      toast.error(message);
+      return false;
+    } finally {
+      dispatch(setEspecialidadesSaving(false));
     }
-
-    const message = result?.payload || "Ocurrio un error inesperado";
-    setFormError(message);
-    toast.error(message);
-    return false;
   };
 
   const handleAddEspecialidad = () => {
@@ -117,20 +136,22 @@ const EspecialidadesPage = () => {
   };
 
   const handleDelete = async (id) => {
-    const result = await dispatch(deleteEspecialidad(id));
-    if (deleteEspecialidad.fulfilled.match(result)) {
+    try {
+      dispatch(setEspecialidadesSaving(true));
+      await api.delete(`/especialidades/${id}`);
       toast.success("Especialidad eliminada correctamente");
-      dispatch(
-        fetchEspecialidades({
-          pagina: paginacion.pagina,
-          limite: paginacion.limite,
-        }),
-      );
+      await cargarEspecialidades();
       return;
+    } catch (error) {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.mensaje ||
+        error?.message ||
+        "No se pudo eliminar la especialidad";
+      toast.error(message);
+    } finally {
+      dispatch(setEspecialidadesSaving(false));
     }
-
-    const message = result?.payload || "No se pudo eliminar la especialidad";
-    toast.error(message);
   };
 
   return (
