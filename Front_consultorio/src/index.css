@@ -1,0 +1,37 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap");
+
+:root {
+  --bg: #eef3f7;
+  --surface: #ffffff;
+  --text: #173041;
+  --text-soft: #2f4d61;
+  --muted: #62798a;
+  --primary: #18445d;
+  --primary-strong: #0f2f42;
+  --danger: #b4233a;
+  --border: #d6e0e8;
+  --card-shadow: 0 14px 34px rgba(18, 45, 63, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Manrope", "Segoe UI", sans-serif;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(190, 213, 227, 0.55), transparent 36%),
+    radial-gradient(circle at 96% 8%, rgba(227, 208, 177, 0.45), transparent 28%),
+    linear-gradient(180deg, #eef3f7 0%, #e5edf5 100%);
+  color: var(--text);
+}
+
+a {
+  color: var(--primary-strong);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
