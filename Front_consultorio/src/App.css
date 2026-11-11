@@ -1028,6 +1028,78 @@ small {
   background: rgba(242, 245, 247, 0.8);
 }
 
+.ai-analysis-shell {
+  overflow: auto;
+}
+
+.ai-analysis-content {
+  color: #1e293b;
+  line-height: 1.7;
+  font-size: 0.94rem;
+}
+
+.ai-analysis-content > :first-child {
+  margin-top: 0;
+}
+
+.ai-analysis-content > :last-child {
+  margin-bottom: 0;
+}
+
+.ai-analysis-heading {
+  margin: 1rem 0 0.6rem;
+  color: #0f172a;
+  line-height: 1.3;
+  font-size: 1rem;
+}
+
+.ai-analysis-paragraph {
+  margin: 0.55rem 0;
+}
+
+.ai-analysis-list {
+  margin: 0.45rem 0 0.75rem;
+  padding-left: 1.3rem;
+}
+
+.ai-analysis-list li {
+  margin: 0.25rem 0;
+}
+
+.ai-analysis-divider {
+  margin: 1rem 0;
+  border: 0;
+  border-top: 1px solid rgba(100, 116, 139, 0.3);
+}
+
+.ai-analysis-table-wrap {
+  margin: 0.8rem 0 0.95rem;
+}
+
+.ai-analysis-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ai-analysis-table thead th {
+  background: rgba(15, 23, 42, 0.06);
+  color: #0f172a;
+  text-align: left;
+  font-weight: 700;
+}
+
+.ai-analysis-table th,
+.ai-analysis-table td {
+  border: 1px solid rgba(100, 116, 139, 0.26);
+  padding: 0.5rem 0.58rem;
+  vertical-align: top;
+  white-space: pre-line;
+}
+
+.ai-analysis-table tr:nth-child(even) td {
+  background: rgba(248, 250, 252, 0.88);
+}
+
 .dashboard-link-btn {
   display: inline-flex;
   align-items: center;
