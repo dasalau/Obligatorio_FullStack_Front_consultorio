@@ -222,7 +222,9 @@ const PacientesList = ({
       .map((cell) => cleanInlineText(cell));
 
   const buildAiBlocks = (text) => {
-    const lines = String(text || "").replace(/\r\n/g, "\n").split("\n");
+    const lines = String(text || "")
+      .replace(/\r\n/g, "\n")
+      .split("\n");
     const blocks = [];
     let index = 0;
 
