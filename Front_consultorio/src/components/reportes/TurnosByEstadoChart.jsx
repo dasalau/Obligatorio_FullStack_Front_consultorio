@@ -106,7 +106,7 @@ const TurnosByEstadoChart = ({ turnos }) => {
         <h2 className="mb-1">Turnos por estado</h2>
         <p className="mb-2 text-secondary">Distribucion actual en la agenda</p>
       </div>
-      <div className="chart-box" style={{ height: 280 }}>
+      <div className="chart-box chart-box-compact">
         <Bar options={options} data={data} />
       </div>
     </section>

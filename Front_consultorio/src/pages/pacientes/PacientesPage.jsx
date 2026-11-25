@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import api from "../../api/api";
@@ -42,7 +42,7 @@ const PacientesPage = () => {
     email: "",
   };
 
-  const cargarPacientes = async () => {
+  const cargarPacientes = useCallback(async () => {
     dispatch(setPacientesLoading(true));
     dispatch(clearPacientesError());
 
@@ -64,11 +64,11 @@ const PacientesPage = () => {
     } finally {
       dispatch(setPacientesLoading(false));
     }
-  };
+  }, [dispatch, paginacion.limite, paginacion.pagina]);
 
   useEffect(() => {
     cargarPacientes();
-  }, [dispatch, paginacion.pagina, paginacion.limite]);
+  }, [cargarPacientes]);
 
   useEffect(() => {
     const query = pacienteBusqueda.trim();
@@ -83,7 +83,7 @@ const PacientesPage = () => {
           params: { q: query, limite: 8 },
         });
         dispatch(setSearchResults(data));
-      } catch (error) {
+      } catch {
         dispatch(setSearchResults([]));
       } finally {
         dispatch(setPacientesSearchLoading(false));
@@ -119,7 +119,7 @@ const PacientesPage = () => {
     try {
       const { data } = await api.get(`/pacientes/${paciente._id}`);
       return data?.paciente || paciente;
-    } catch (error) {
+    } catch {
       return paciente;
     }
   };
@@ -217,7 +217,7 @@ const PacientesPage = () => {
         title="Gestion de pacientes"
         subtitle="Alta, edicion y eliminacion"
         rightContent={
-          <div style={{ position: "relative", width: "min(100%, 420px)" }}>
+          <div className="patient-search-rail">
             <PageActionRail
               placeholder="Buscar paciente"
               addLabel="Agregar paciente"
@@ -232,7 +232,7 @@ const PacientesPage = () => {
             {pacienteBusqueda.trim() && (
               <div
                 className="search-suggestion-list"
-                style={{ top: "calc(100% + 10px)" }}
+                data-offset="patient-header"
               >
                 {searchLoading ? (
                   <span className="search-suggestion-empty">

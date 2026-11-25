@@ -22,7 +22,7 @@ const EspecialidadesList = ({
 
       {!loading && !error && items.length > 0 && (
         <div className="table-responsive modern-table-wrap">
-          <table className="table table-striped align-middle mb-0 modern-table">
+          <table className="table table-hover table-striped align-middle mb-0 modern-table">
             <thead>
               <tr>
                 <th>Nombre</th>

@@ -7,12 +7,12 @@ const TurnosTable = ({ turnos, onDelete, onInlineUpdate, onEdit, loading }) => {
   const [historyLoading, setHistoryLoading] = useState(false);
 
   useEffect(() => {
-    if (!selectedTurno?.paciente?._id) {
-      setPacienteHistory([]);
-      return;
-    }
-
     const fetchPacienteHistory = async () => {
+      if (!selectedTurno?.paciente?._id) {
+        setPacienteHistory([]);
+        return;
+      }
+
       setHistoryLoading(true);
       try {
         const { data } = await api.get(
@@ -22,7 +22,7 @@ const TurnosTable = ({ turnos, onDelete, onInlineUpdate, onEdit, loading }) => {
           (turno) => turno._id !== selectedTurno._id,
         );
         setPacienteHistory(history);
-      } catch (error) {
+      } catch {
         setPacienteHistory([]);
       } finally {
         setHistoryLoading(false);
@@ -205,7 +205,7 @@ const TurnosTable = ({ turnos, onDelete, onInlineUpdate, onEdit, loading }) => {
 
         {!loading && turnos.length > 0 && (
           <div className="table-responsive modern-table-wrap">
-            <table className="table table-striped align-middle mb-0 modern-table">
+            <table className="table table-hover table-striped align-middle mb-0 modern-table">
               <thead>
                 <tr>
                   <th>Fecha</th>
@@ -225,8 +225,8 @@ const TurnosTable = ({ turnos, onDelete, onInlineUpdate, onEdit, loading }) => {
                   return (
                     <tr
                       key={turno._id}
+                      className="table-row-clickable"
                       onClick={() => setSelectedTurno(turno)}
-                      style={{ cursor: "pointer" }}
                     >
                       <td>{formatDate(turno.fecha)}</td>
                       <td>{turno.hora}</td>

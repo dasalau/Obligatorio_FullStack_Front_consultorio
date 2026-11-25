@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import api from "../../api/api";
@@ -33,7 +33,7 @@ const TurnosPage = () => {
   const [editingTurno, setEditingTurno] = useState(null);
   const [formError, setFormError] = useState(null);
 
-  const cargarTurnos = async () => {
+  const cargarTurnos = useCallback(async () => {
     dispatch(setTurnosLoading(true));
     dispatch(clearTurnosError());
 
@@ -64,9 +64,9 @@ const TurnosPage = () => {
     } finally {
       dispatch(setTurnosLoading(false));
     }
-  };
+  }, [dispatch, filtros.estado, filtros.fecha, paginacion.limite, paginacion.pagina]);
 
-  const cargarEspecialidades = async () => {
+  const cargarEspecialidades = useCallback(async () => {
     dispatch(setEspecialidadesLoading(true));
 
     try {
@@ -79,15 +79,15 @@ const TurnosPage = () => {
     } finally {
       dispatch(setEspecialidadesLoading(false));
     }
-  };
+  }, [dispatch]);
 
   useEffect(() => {
     cargarTurnos();
-  }, [dispatch, filtros.estado, filtros.fecha, paginacion.pagina]);
+  }, [cargarTurnos]);
 
   useEffect(() => {
     cargarEspecialidades();
-  }, [dispatch]);
+  }, [cargarEspecialidades]);
 
   const handleCreateTurno = async (values) => {
     try {
@@ -239,6 +239,7 @@ const TurnosPage = () => {
 
       {showCreateForm && (
         <TurnoForm
+          key={editingTurno?._id || "new-turno-form"}
           onSubmit={editingTurno ? handleEditTurno : handleCreateTurno}
           loading={saving}
           especialidades={especialidades}
@@ -295,7 +296,7 @@ const TurnosPage = () => {
 
       {error && <p className="error-text">{error}</p>}
 
-      <div style={{ height: 16 }} />
+      <div className="my-3" />
 
       <TurnosTable
         turnos={items}

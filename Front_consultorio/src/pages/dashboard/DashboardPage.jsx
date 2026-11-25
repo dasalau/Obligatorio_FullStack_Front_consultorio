@@ -13,7 +13,6 @@ const DashboardPage = () => {
   const dispatch = useDispatch();
   const { user, error } = useSelector((state) => state.auth);
   const turnos = useSelector((state) => state.turnos.reporte.items || []);
-  const totalTurnos = useSelector((state) => state.turnos.reporte.total || 0);
   const planCode = user?.plan?.codigo || user?.plan;
 
   useEffect(() => {
@@ -81,7 +80,7 @@ const DashboardPage = () => {
     };
 
     loadReporte();
-  }, [dispatch, user?._id, user?.id]);
+  }, [dispatch, user]);
 
   const resumen = turnos.reduce(
     (acc, turno) => {
@@ -91,10 +90,6 @@ const DashboardPage = () => {
     },
     { pendiente: 0, confirmado: 0, cancelado: 0, atendido: 0 },
   );
-
-  const estadoPrincipal = Object.entries(resumen).sort(
-    (a, b) => b[1] - a[1],
-  )[0];
 
   return (
     <>

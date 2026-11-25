@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { joiResolver } from "@hookform/resolvers/joi";
 import api from "../../api/api";
 import {
@@ -129,11 +129,11 @@ const TurnoForm = ({
     (state) => state.pacientes,
   );
   const {
+    control,
     register,
     handleSubmit,
     reset,
     setValue,
-    watch,
     formState: { errors, isValid },
   } = useForm({
     resolver: editingId ? undefined : joiResolver(turnoSchema),
@@ -142,7 +142,7 @@ const TurnoForm = ({
     defaultValues: initialValues,
   });
 
-  const fechaValue = watch("fecha") || "";
+  const fechaValue = useWatch({ control, name: "fecha" }) || "";
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => {
     if (!fechaValue) return new Date();
@@ -164,22 +164,6 @@ const TurnoForm = ({
   );
 
   useEffect(() => {
-    reset(initialValues);
-
-    setPacienteBusqueda(initialValues.pacienteLabel || "");
-    setEspecialidadBusqueda(initialValues.especialidadLabel || "");
-    setPacienteSeleccionadoId(initialValues.paciente || "");
-    setEspecialidadSeleccionadaId(initialValues.especialidad || "");
-  }, [initialValues, reset]);
-
-  useEffect(() => {
-    if (!fechaValue) return;
-
-    const [year, month, day] = fechaValue.split("-").map(Number);
-    setCalendarMonth(new Date(year, month - 1, day || 1));
-  }, [fechaValue]);
-
-  useEffect(() => {
     const query = pacienteBusqueda.trim();
     if (!query || pacienteSeleccionadoId) {
       return;
@@ -192,7 +176,7 @@ const TurnoForm = ({
           params: { q: query, limite: 8 },
         });
         dispatch(setSearchResults(data));
-      } catch (error) {
+      } catch {
         dispatch(setSearchResults([]));
       } finally {
         dispatch(setPacientesSearchLoading(false));
@@ -247,6 +231,22 @@ const TurnoForm = ({
     setCalendarOpen(false);
   };
 
+  const handleToggleCalendar = () => {
+    if (calendarOpen) {
+      setCalendarOpen(false);
+      return;
+    }
+
+    if (fechaValue) {
+      const [year, month, day] = fechaValue.split("-").map(Number);
+      setCalendarMonth(new Date(year, month - 1, day || 1));
+    } else {
+      setCalendarMonth(new Date());
+    }
+
+    setCalendarOpen(true);
+  };
+
   const submitForm = async (values) => {
     const result = await onSubmit(values);
 
@@ -267,10 +267,10 @@ const TurnoForm = ({
       <h2>{editingId ? "Editar turno" : "Nuevo turno"}</h2>
 
       <div className="form-grid">
-        <div className="form-field" style={{ position: "relative" }}>
+        <div className="form-field turno-date-field">
           <label htmlFor="turno-fecha">Fecha</label>
           <input type="hidden" {...register("fecha")} />
-          <div style={{ display: "flex", alignItems: "center" }}>
+          <div className="input-group turnos-date-input-group">
             <input
               id="turno-fecha"
               className="form-control"
@@ -280,31 +280,13 @@ const TurnoForm = ({
               value={formatDateForInput(fechaValue)}
               onChange={(event) => handleFechaTextChange(event.target.value)}
               onBlur={(event) => handleFechaTextChange(event.target.value)}
-              style={{
-                borderRadius: "0.85rem 0 0 0.85rem",
-                border: "1px solid rgba(82, 97, 114, 0.18)",
-                borderRight: "none",
-                background: "#ffffff",
-                minHeight: "2.9rem",
-              }}
             />
 
             <button
               type="button"
+              className="btn btn-outline-secondary"
               aria-label="Seleccionar fecha"
-              onClick={() => setCalendarOpen((value) => !value)}
-              style={{
-                minHeight: "2.9rem",
-                width: "2.9rem",
-                border: "1px solid rgba(82, 97, 114, 0.18)",
-                borderRadius: "0 0.85rem 0.85rem 0",
-                background: "linear-gradient(135deg, #ffffff 0%, #f3f7fb 100%)",
-                color: "#516674",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-              }}
+              onClick={handleToggleCalendar}
             >
               <svg
                 width="15"
@@ -326,30 +308,11 @@ const TurnoForm = ({
           </div>
 
           {calendarOpen && (
-            <div
-              style={{
-                position: "absolute",
-                top: "calc(100% + 0.6rem)",
-                left: 0,
-                width: 310,
-                background: "#ffffff",
-                border: "1px solid rgba(15, 23, 42, 0.08)",
-                borderRadius: "1rem",
-                boxShadow: "0 22px 40px rgba(15, 23, 42, 0.1)",
-                padding: "0.9rem",
-                zIndex: 20,
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  marginBottom: "0.8rem",
-                }}
-              >
+            <div className="turnos-calendar-popover">
+              <div className="turnos-calendar-head">
                 <button
                   type="button"
+                  className="turnos-calendar-nav"
                   onClick={() =>
                     setCalendarMonth(
                       new Date(
@@ -359,28 +322,15 @@ const TurnoForm = ({
                       ),
                     )
                   }
-                  style={{
-                    border: "none",
-                    background: "#f4f7fb",
-                    borderRadius: "0.5rem",
-                    width: "2rem",
-                    height: "2rem",
-                    cursor: "pointer",
-                    color: "#23415d",
-                    fontWeight: 700,
-                  }}
                 >
                   ‹
                 </button>
 
-                <strong
-                  style={{ color: "#1d3a4b", textTransform: "capitalize" }}
-                >
-                  {monthLabel}
-                </strong>
+                <strong className="turnos-calendar-month">{monthLabel}</strong>
 
                 <button
                   type="button"
+                  className="turnos-calendar-nav"
                   onClick={() =>
                     setCalendarMonth(
                       new Date(
@@ -390,52 +340,20 @@ const TurnoForm = ({
                       ),
                     )
                   }
-                  style={{
-                    border: "none",
-                    background: "#f4f7fb",
-                    borderRadius: "0.5rem",
-                    width: "2rem",
-                    height: "2rem",
-                    cursor: "pointer",
-                    color: "#23415d",
-                    fontWeight: 700,
-                  }}
                 >
                   ›
                 </button>
               </div>
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
-                  gap: "0.35rem",
-                  marginBottom: "0.7rem",
-                }}
-              >
+              <div className="turnos-calendar-weekdays">
                 {weekdayLabels.map((day) => (
-                  <div
-                    key={day}
-                    style={{
-                      textAlign: "center",
-                      fontSize: "0.72rem",
-                      color: "#6c7d8a",
-                      fontWeight: 700,
-                      padding: "0.3rem 0",
-                    }}
-                  >
+                  <div key={day} className="turnos-calendar-weekday">
                     {day}
                   </div>
                 ))}
               </div>
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
-                  gap: "0.35rem",
-                }}
-              >
+              <div className="turnos-calendar-grid">
                 {monthDays.map((item, index) => {
                   const selectedDate =
                     fechaValue &&
@@ -450,26 +368,7 @@ const TurnoForm = ({
                       key={`${item.date.toISOString()}-${index}`}
                       type="button"
                       onClick={() => handleFechaSelect(item.date)}
-                      style={{
-                        border: "none",
-                        borderRadius: "0.6rem",
-                        padding: "0.5rem 0",
-                        cursor: "pointer",
-                        background: selectedDate
-                          ? "#123145"
-                          : item.currentMonth
-                            ? "#ffffff"
-                            : "#f7f9fb",
-                        color: selectedDate
-                          ? "#ffffff"
-                          : item.currentMonth
-                            ? "#1d3a4b"
-                            : "#a0acb7",
-                        fontWeight: selectedDate ? 700 : 500,
-                        boxShadow: selectedDate
-                          ? "0 10px 18px rgba(18, 49, 69, 0.18)"
-                          : "none",
-                      }}
+                      className={`turnos-calendar-day ${item.currentMonth ? "" : "is-outside"} ${selectedDate ? "is-selected" : ""}`}
                     >
                       {item.day}
                     </button>

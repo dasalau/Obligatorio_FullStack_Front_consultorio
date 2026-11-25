@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import api from "../../api/api";
 
 const PacientesList = ({
@@ -30,22 +32,19 @@ const PacientesList = ({
   const activeSelectedPaciente = selectedPaciente ?? internalSelectedPaciente;
 
   useEffect(() => {
-    setAiAnalysis("");
-    setAiLoading(false);
-
-    if (!activeSelectedPaciente?._id) {
-      setPacienteHistory([]);
-      return;
-    }
-
     const fetchPacienteHistory = async () => {
+      if (!activeSelectedPaciente?._id) {
+        setPacienteHistory([]);
+        return;
+      }
+
       setHistoryLoading(true);
       try {
         const { data } = await api.get(
           `/turnos/paciente/${activeSelectedPaciente._id}`,
         );
         setPacienteHistory(data?.turnos || []);
-      } catch (error) {
+      } catch {
         setPacienteHistory([]);
       } finally {
         setHistoryLoading(false);
@@ -53,30 +52,7 @@ const PacientesList = ({
     };
 
     fetchPacienteHistory();
-  }, [activeSelectedPaciente]);
-
-  const formatDate = (value) => {
-    if (!value) return "Sin dato";
-
-    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      const [year, month, day] = value.split("-").map(Number);
-      const localDate = new Date(year, month - 1, day);
-      const formattedDay = String(localDate.getDate()).padStart(2, "0");
-      const formattedMonth = localDate.toLocaleString("es-ES", {
-        month: "short",
-      });
-      return `${formattedDay}-${formattedMonth}-${localDate.getFullYear()}`;
-    }
-
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value;
-
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = date.toLocaleString("es-ES", { month: "short" });
-    const year = date.getFullYear();
-
-    return `${day}-${month}-${year}`;
-  };
+  }, [activeSelectedPaciente?._id]);
 
   const getPacienteName = (paciente) => {
     if (!paciente) return "-";
@@ -149,8 +125,7 @@ const PacientesList = ({
             .map((etapa, index) => {
               if (typeof etapa === "string") return `${index + 1}. ${etapa}`;
               if (typeof etapa === "object") {
-                const title =
-                  etapa.etapa || etapa.titulo || `Etapa ${index + 1}`;
+                const title = etapa.etapa || etapa.titulo || `Etapa ${index + 1}`;
                 const descripcion = etapa.descripcion || etapa.texto || "";
                 return `${index + 1}. ${title}${descripcion ? `: ${descripcion}` : ""}`;
               }
@@ -168,10 +143,7 @@ const PacientesList = ({
               .map(([key, value]) => {
                 if (Array.isArray(value)) {
                   return `${key}:\n${value
-                    .map(
-                      (item) =>
-                        `- ${typeof item === "string" ? item : JSON.stringify(item)}`,
-                    )
+                    .map((item) => `- ${typeof item === "string" ? item : JSON.stringify(item)}`)
                     .join("\n")}`;
                 }
                 return `${key}: ${value}`;
@@ -195,228 +167,11 @@ const PacientesList = ({
 
         return sections.join("\n\n");
       }
-    } catch (error) {
+    } catch {
       // Ignora el parse si no es JSON puro y deja el texto tal cual.
     }
 
     return text;
-  };
-
-  const cleanInlineText = (value) =>
-    String(value || "")
-      .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/\*\*(.*?)\*\*/g, "$1")
-      .replace(/__(.*?)__/g, "$1")
-      .replace(/`([^`]+)`/g, "$1")
-      .trim();
-
-  const isTableSeparator = (line) =>
-    /^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?$/.test(line.trim());
-
-  const parseTableRow = (line) =>
-    line
-      .trim()
-      .replace(/^\|/, "")
-      .replace(/\|$/, "")
-      .split("|")
-      .map((cell) => cleanInlineText(cell));
-
-  const buildAiBlocks = (text) => {
-    const lines = String(text || "")
-      .replace(/\r\n/g, "\n")
-      .split("\n");
-    const blocks = [];
-    let index = 0;
-
-    const pushParagraph = (content) => {
-      const normalized = cleanInlineText(content);
-      if (normalized) {
-        blocks.push({ type: "paragraph", content: normalized });
-      }
-    };
-
-    while (index < lines.length) {
-      const rawLine = lines[index] ?? "";
-      const line = rawLine.trim();
-
-      if (!line) {
-        index += 1;
-        continue;
-      }
-
-      if (/^-{3,}$/.test(line)) {
-        blocks.push({ type: "divider" });
-        index += 1;
-        continue;
-      }
-
-      const markdownHeadingMatch = line.match(/^#{1,6}\s+(.+)$/);
-      if (markdownHeadingMatch) {
-        blocks.push({
-          type: "heading",
-          content: cleanInlineText(markdownHeadingMatch[1]),
-        });
-        index += 1;
-        continue;
-      }
-
-      const strongHeadingMatch = line.match(/^\*\*(.+?)\*\*:?$/);
-      if (strongHeadingMatch) {
-        blocks.push({
-          type: "heading",
-          content: cleanInlineText(strongHeadingMatch[1]),
-        });
-        index += 1;
-        continue;
-      }
-
-      const isTableHeader =
-        line.includes("|") &&
-        index + 1 < lines.length &&
-        isTableSeparator(lines[index + 1]);
-
-      if (isTableHeader) {
-        const headers = parseTableRow(line);
-        index += 2;
-
-        const rows = [];
-        while (index < lines.length) {
-          const rowLine = (lines[index] || "").trim();
-          if (!rowLine || !rowLine.includes("|")) break;
-          rows.push(parseTableRow(rowLine));
-          index += 1;
-        }
-
-        blocks.push({ type: "table", headers, rows });
-        continue;
-      }
-
-      if (/^[-*]\s+/.test(line)) {
-        const items = [];
-        while (index < lines.length) {
-          const itemLine = (lines[index] || "").trim();
-          if (!/^[-*]\s+/.test(itemLine)) break;
-          items.push(cleanInlineText(itemLine.replace(/^[-*]\s+/, "")));
-          index += 1;
-        }
-        blocks.push({ type: "list", items });
-        continue;
-      }
-
-      if (/^\d+\.\s+/.test(line)) {
-        const items = [];
-        while (index < lines.length) {
-          const itemLine = (lines[index] || "").trim();
-          if (!/^\d+\.\s+/.test(itemLine)) break;
-          items.push(cleanInlineText(itemLine.replace(/^\d+\.\s+/, "")));
-          index += 1;
-        }
-        blocks.push({ type: "ordered", items });
-        continue;
-      }
-
-      const paragraphLines = [line];
-      index += 1;
-      while (index < lines.length) {
-        const next = (lines[index] || "").trim();
-        if (!next) break;
-        if (/^-{3,}$/.test(next)) break;
-        if (/^#{1,6}\s+/.test(next)) break;
-        if (/^\*\*(.+?)\*\*:?$/.test(next)) break;
-        if (/^[-*]\s+/.test(next)) break;
-        if (/^\d+\.\s+/.test(next)) break;
-        if (
-          next.includes("|") &&
-          index + 1 < lines.length &&
-          isTableSeparator(lines[index + 1] || "")
-        ) {
-          break;
-        }
-        paragraphLines.push(next);
-        index += 1;
-      }
-
-      pushParagraph(paragraphLines.join(" "));
-    }
-
-    return blocks;
-  };
-
-  const renderAiBlocks = (text) => {
-    const blocks = buildAiBlocks(text);
-
-    if (!blocks.length) {
-      return <p className="ai-analysis-paragraph">Sin respuesta.</p>;
-    }
-
-    return blocks.map((block, blockIndex) => {
-      const key = `${block.type}-${blockIndex}`;
-
-      if (block.type === "heading") {
-        return (
-          <h4 key={key} className="ai-analysis-heading">
-            {block.content}
-          </h4>
-        );
-      }
-
-      if (block.type === "divider") {
-        return <hr key={key} className="ai-analysis-divider" />;
-      }
-
-      if (block.type === "list") {
-        return (
-          <ul key={key} className="ai-analysis-list">
-            {block.items.map((item, itemIndex) => (
-              <li key={`${key}-item-${itemIndex}`}>{item}</li>
-            ))}
-          </ul>
-        );
-      }
-
-      if (block.type === "ordered") {
-        return (
-          <ol key={key} className="ai-analysis-list ai-analysis-list-ordered">
-            {block.items.map((item, itemIndex) => (
-              <li key={`${key}-item-${itemIndex}`}>{item}</li>
-            ))}
-          </ol>
-        );
-      }
-
-      if (block.type === "table") {
-        return (
-          <div key={key} className="table-responsive ai-analysis-table-wrap">
-            <table className="ai-analysis-table">
-              <thead>
-                <tr>
-                  {block.headers.map((header, headerIndex) => (
-                    <th key={`${key}-header-${headerIndex}`}>{header}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {block.rows.map((row, rowIndex) => (
-                  <tr key={`${key}-row-${rowIndex}`}>
-                    {row.map((cell, cellIndex) => (
-                      <td key={`${key}-row-${rowIndex}-cell-${cellIndex}`}>
-                        {cell}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        );
-      }
-
-      return (
-        <p key={key} className="ai-analysis-paragraph">
-          {block.content}
-        </p>
-      );
-    });
   };
 
   const requestAnalysisFromGroq = async (mode) => {
@@ -666,10 +421,9 @@ const PacientesList = ({
             <img
               src={fullscreenImage}
               alt="Vista ampliada del paciente"
-              className="turno-image-fullscreen"
+              className={`turno-image-fullscreen ${isDragging ? "is-dragging" : ""}`}
               style={{
                 transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-                cursor: isDragging ? "grabbing" : "grab",
                 touchAction: "none",
               }}
               onWheel={handleWheelZoom}
@@ -696,42 +450,25 @@ const PacientesList = ({
               </div>
               <div className="d-flex gap-2 align-items-center flex-wrap">
                 <button
-                  className="btn btn-sm btn-outline-primary"
+                  className="btn btn-sm btn-outline-primary modal-pill-btn"
                   type="button"
                   onClick={handleAnalyzePacienteHistory}
                   disabled={aiLoading}
-                  style={{
-                    borderRadius: "999px",
-                    padding: "0.5rem 1rem",
-                    fontWeight: 600,
-                    letterSpacing: "0.01em",
-                  }}
                 >
                   {aiLoading ? "Analizando..." : "Ver evolución"}
                 </button>
                 <button
-                  className="btn btn-sm btn-outline-secondary"
+                  className="btn btn-sm btn-outline-secondary modal-pill-btn"
                   type="button"
                   onClick={handleSuggestFutureTreatment}
                   disabled={aiLoading}
-                  style={{
-                    borderRadius: "999px",
-                    padding: "0.5rem 1rem",
-                    fontWeight: 600,
-                    letterSpacing: "0.01em",
-                  }}
                 >
                   Sugerir tratamiento
                 </button>
                 <button
-                  className="btn btn-sm btn-light"
+                  className="btn btn-sm btn-light modal-pill-btn modal-pill-btn-light"
                   type="button"
                   onClick={closeModal}
-                  style={{
-                    borderRadius: "999px",
-                    padding: "0.5rem 1rem",
-                    fontWeight: 500,
-                  }}
                 >
                   Cerrar
                 </button>
@@ -769,9 +506,6 @@ const PacientesList = ({
                     className="file-upload-button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploadingImages}
-                    style={{
-                      pointerEvents: uploadingImages ? "none" : "auto",
-                    }}
                   >
                     {uploadingImages ? "Subiendo..." : "+"}
                   </button>
@@ -844,66 +578,37 @@ const PacientesList = ({
               </div>
 
               <div
-                className="turno-detail-box turno-detail-box-full"
-                style={{
-                  background:
-                    "linear-gradient(180deg, #f8fafc 0%, #eef4ff 100%)",
-                }}
+                className="turno-detail-box turno-detail-box-full ai-summary-box"
               >
                 <div className="d-flex justify-content-between align-items-center gap-2 mb-3">
                   <div>
-                    <span
-                      style={{
-                        display: "block",
-                        fontSize: "0.72rem",
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase",
-                        color: "#64748b",
-                        fontWeight: 700,
-                      }}
-                    >
+                    <span className="ai-summary-kicker">
                       Asistente clínico
                     </span>
-                    <strong style={{ fontSize: "1rem", color: "#0f172a" }}>
+                    <strong className="ai-summary-title">
                       Resumen clínico con IA
                     </strong>
                   </div>
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      padding: "0.35rem 0.7rem",
-                      borderRadius: "999px",
-                      background: "rgba(35, 104, 255, 0.09)",
-                      color: "#2158d2",
-                      fontSize: "0.72rem",
-                      fontWeight: 700,
-                    }}
-                  >
+                  <span className="ai-summary-badge">
                     Privado
                   </span>
                 </div>
 
                 {aiLoading ? (
-                  <p style={{ margin: 0, color: "#475569" }}>
+                  <p className="ai-summary-text mb-0">
                     Cargando análisis...
                   </p>
                 ) : aiAnalysis ? (
-                  <div
-                    className="p-3 border rounded ai-analysis-shell"
-                    style={{
-                      background: "rgba(255,255,255,0.72)",
-                      borderColor: "rgba(148, 163, 184, 0.32)",
-                      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.8)",
-                    }}
-                  >
-                    <div className="ai-analysis-content">
-                      {renderAiBlocks(aiAnalysis)}
-                    </div>
+                  <div className="ai-summary-content p-3 border rounded">
+                    <ReactMarkdown
+                      className="ai-summary-markdown"
+                      remarkPlugins={[remarkGfm]}
+                    >
+                      {aiAnalysis}
+                    </ReactMarkdown>
                   </div>
                 ) : (
-                  <p style={{ margin: 0, color: "#475569", lineHeight: 1.7 }}>
+                  <p className="ai-summary-text mb-0">
                     El análisis usa solo historial clínico anónimo y no expone
                     datos personales. Si no hay información suficiente, no se
                     inventa una evolución ni un tratamiento.
@@ -932,7 +637,7 @@ const PacientesList = ({
 
         {!loading && !error && items.length > 0 && (
           <div className="table-responsive modern-table-wrap">
-            <table className="table table-striped align-middle mb-0 modern-table">
+            <table className="table table-hover table-striped align-middle mb-0 modern-table">
               <thead>
                 <tr>
                   <th>Nombre</th>
@@ -946,11 +651,11 @@ const PacientesList = ({
                 {items.map((paciente) => (
                   <tr
                     key={paciente._id}
+                    className="table-row-clickable"
                     onClick={() => {
                       setInternalSelectedPaciente(paciente);
                       onSelectPaciente?.(paciente);
                     }}
-                    style={{ cursor: "pointer" }}
                   >
                     <td>
                       {paciente.nombre} {paciente.apellido}

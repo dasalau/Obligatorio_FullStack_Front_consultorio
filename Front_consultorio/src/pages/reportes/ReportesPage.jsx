@@ -100,10 +100,6 @@ const ReportesPage = () => {
     return estado === "pendiente" || estado === "confirmado";
   }).length;
 
-  const estadoMasActivo = Object.entries(resumen).sort(
-    (a, b) => b[1] - a[1],
-  )[0];
-
   const handleUpgradePlan = async () => {
     try {
       const { data } = await api.patch("/usuarios/change-plan", {
@@ -126,7 +122,7 @@ const ReportesPage = () => {
     <>
       {error && <p className="error-text">{error}</p>}
 
-      <div className="grid-2" style={{ marginBottom: 16 }}>
+      <div className="grid-2 report-cards-grid">
         <UsageCard planCode={planCode} totalTurnos={planUsageTotal} />
         <PlanSwitchCard
           planCode={planCode}

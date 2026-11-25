@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import api from "../../api/api";
@@ -30,7 +30,7 @@ const EspecialidadesPage = () => {
     descripcion: "",
   };
 
-  const cargarEspecialidades = async () => {
+  const cargarEspecialidades = useCallback(async () => {
     dispatch(setEspecialidadesLoading(true));
     dispatch(clearEspecialidadesError());
 
@@ -52,11 +52,11 @@ const EspecialidadesPage = () => {
     } finally {
       dispatch(setEspecialidadesLoading(false));
     }
-  };
+  }, [dispatch, paginacion.limite, paginacion.pagina]);
 
   useEffect(() => {
     cargarEspecialidades();
-  }, [dispatch, paginacion.pagina, paginacion.limite]);
+  }, [cargarEspecialidades]);
 
   const filteredEspecialidades = items.filter((especialidad) => {
     const query = searchTerm.trim().toLowerCase();

@@ -8,7 +8,7 @@ const PagePagination = ({
   label = "Pagina",
 }) => {
   return (
-    <section className="page-pagination">
+    <section className="page-pagination mt-3 mt-md-4">
       <div className="page-pagination-meta">
         <span className="soft-badge">{label}</span>
         <p className="page-pagination-summary">
@@ -18,14 +18,14 @@ const PagePagination = ({
 
       <div className="page-pagination-actions">
         <button
-          className="page-nav-btn"
+          className="page-nav-btn btn btn-outline-secondary"
           disabled={disablePrev}
           onClick={onPrev}
         >
           Anterior
         </button>
         <button
-          className="page-nav-btn page-nav-btn-primary"
+          className="page-nav-btn page-nav-btn-primary btn btn-primary"
           disabled={disableNext}
           onClick={onNext}
         >

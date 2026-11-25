@@ -4,11 +4,10 @@ const PageFilterSelect = ({
   onChange,
   options,
   placeholder = "Todos",
-  width = 320,
 }) => {
   return (
     <section className="card section-card border-0">
-      <label className="form-label mb-0" style={{ maxWidth: width }}>
+      <label className="form-label mb-0 page-filter-select-label">
         {label}
         <select className="form-select" value={value} onChange={onChange}>
           <option value="">{placeholder}</option>

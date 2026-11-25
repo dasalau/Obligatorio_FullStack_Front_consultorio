@@ -13,12 +13,7 @@ const UploadDisplay = () => {
         <img
           src={url}
           alt="Imagen subida"
-          style={{
-            maxWidth: "100%",
-            maxHeight: 420,
-            objectFit: "contain",
-            borderRadius: 16,
-          }}
+          className="upload-preview-image"
         />
       ) : (
         <p className="mb-0 text-secondary">La imagen subida aparecerá aquí.</p>
